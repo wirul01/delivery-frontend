@@ -1,0 +1,85 @@
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>สวัสดี {{ auth.user()?.display_name }}</h1>
+      <p>ภาพรวมออเดอร์ข้าวกล่องของวันที่เลือก</p>
+    </div>
+    <label class="field datepick">
+      <span>วันที่ส่ง</span>
+      <input class="input" type="date" [ngModel]="selectedDate()" (ngModelChange)="selectedDate.set($event)">
+    </label>
+  </header>
+
+  @if (loading()) {
+    <div class="panel state"><div class="spinner"></div><span>กำลังโหลดภาพรวม…</span></div>
+  } @else {
+    @if (ordersFailed()) {
+      <div class="alert" role="alert">โหลดข้อมูลออเดอร์ไม่สำเร็จ <button class="btn btn-sm" type="button" (click)="load()">ลองใหม่</button></div>
+    }
+
+    <!-- ถาดข้าวกล่อง: จุดเด่นของหน้า -->
+    <div class="panel hero">
+      <div class="hero-text">
+        <p class="muted">{{ isToday() ? 'วันนี้' : date(selectedDate()) }} ต้องส่งอีก</p>
+        <p class="big num">{{ queuedBoxes() }} <span>กล่อง</span></p>
+        <p class="muted">ส่งแล้ว {{ shippedBoxes() }} จากทั้งหมด {{ totalBoxes() }} กล่อง ({{ progressPct() }}%)</p>
+        <a class="btn btn-primary" routerLink="/admin/route-planning">ไปวางเส้นทางส่ง</a>
+      </div>
+      <div class="tray-wrap">
+        @if (totalBoxes() === 0) {
+          <p class="muted">ยังไม่มีออเดอร์ในวันนี้ — <a routerLink="/admin/orders">สร้างออเดอร์</a></p>
+        } @else {
+          <div class="tray" role="img" [attr.aria-label]="'ส่งแล้ว ' + shippedBoxes() + ' กล่อง รอส่ง ' + queuedBoxes() + ' กล่อง'">
+            @for (b of tray(); track $index) { <span class="box" [class.shipped]="b.shipped"></span> }
+            @if (trayOverflow() > 0) { <span class="more num">+{{ trayOverflow() }}</span> }
+          </div>
+          <p class="legend muted"><span class="box shipped"></span> ส่งแล้ว <span class="box"></span> รอส่ง</p>
+        }
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel stat"><span class="label">ออเดอร์</span><span class="value">{{ dayOrders().length }}</span><span class="sub">{{ totalBoxes() }} กล่อง</span></div>
+      <div class="panel stat"><span class="label">ยอดขาย</span><span class="value">{{ revenue().toFixed(0) }}</span><span class="sub">บาท</span></div>
+      <div class="panel stat"><span class="label">กำไรก่อนหักค่าส่ง</span><span class="value">{{ profit().toFixed(0) }}</span><span class="sub">ค่าส่งดูที่หน้าวางเส้นทาง</span></div>
+      <div class="panel stat"><span class="label">เวลาส่งถึงเป้าหมาย</span><span class="value">12:30</span><span class="sub"><a routerLink="/admin/route-planning">เปิดหน้าวางเส้นทาง</a></span></div>
+      <div class="panel stat"><span class="label">ลูกค้าทั้งหมด</span><span class="value">{{ customers().length }}</span><span class="sub"><a routerLink="/admin/customers">ดูรายชื่อ</a></span></div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-pad head"><h2>ออเดอร์ล่าสุด</h2><a routerLink="/admin/orders">ดูทั้งหมด</a></div>
+        @if (latestOrders().length === 0) {
+          <div class="state"><span>ยังไม่มีออเดอร์</span></div>
+        } @else {
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>เลขออเดอร์</th><th>ลูกค้า</th><th class="right">กล่อง</th><th>สถานะ</th></tr></thead>
+              <tbody>
+                @for (o of latestOrders(); track o.order_id) {
+                  <tr>
+                    <td class="num">{{ o.order_number }}</td><td>{{ customerName(o) }}</td><td class="num right">{{ o.quantity }}</td>
+                    <td><span [class]="'badge ' + statusClass[o.order_status]">{{ statusLabel[o.order_status] }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="panel">
+        <div class="panel-pad head"><h2>ลูกค้าสั่งมากที่สุด</h2></div>
+        @if (topCustomers().length === 0) {
+          <div class="state"><span>ยังไม่มีข้อมูล</span></div>
+        } @else {
+          <ol class="top">
+            @for (c of topCustomers(); track c.name) {
+              <li><span>{{ c.name }}</span><span class="num muted">{{ c.boxes }} กล่อง · {{ c.orders }} ออเดอร์</span></li>
+            }
+          </ol>
+        }
+      </div>
+    </div>
+  }
+</section>

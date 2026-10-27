@@ -1,0 +1,23 @@
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  font: inherit; color: var(--ink); cursor: pointer; display: grid; grid-template-columns: auto auto; gap: 0 10px; align-items: baseline; text-align: left;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 16px; min-width: 150px;
+}
+.chip .chip-label { grid-column: 1 / -1; font-size: .88rem; color: var(--ink-2); }
+.chip b { font-size: 1.5rem; font-weight: 600; }
+.chip.queued { border-left: 5px solid var(--warn); }
+.chip.shipped { border-left: 5px solid var(--ok); }
+.chip.on { background: var(--brand-soft); border-color: var(--brand); }
+.date { width: 170px; }
+.nearby { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+.small { font-size: .85rem; }
+.count { padding: 10px 14px; font-size: .9rem; }
+.tools summary { cursor: pointer; font-weight: 500; }
+.tools .toolbar { margin-top: 12px; }
+.tools p { margin-top: 6px; }
+.modal.wide { width: min(640px, 100%); }
+.modal.narrow { width: min(380px, 100%); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; width: fit-content; }
+.seg button { font: inherit; font-weight: 600; background: var(--panel); color: var(--ink); border: 0; padding: 9px 24px; cursor: pointer; min-height: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--brand); color: var(--brand-ink); }

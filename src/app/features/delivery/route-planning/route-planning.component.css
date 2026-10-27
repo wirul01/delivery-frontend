@@ -1,0 +1,54 @@
+.controls { display: grid; gap: 14px; }
+.control-row { display: grid; gap: 16px; grid-template-columns: minmax(160px, 1fr) minmax(200px, 1fr) minmax(300px, 2fr); align-items: start; }
+.goal-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.goal { flex: 1 1 130px; }
+.goal.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.control-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.stat.loss { border-color: var(--danger); background: var(--danger-soft); }
+.profit { color: var(--ok); }
+.loss-text { color: var(--danger); font-weight: 500; }
+.ontime { color: var(--ok); font-weight: 500; }
+.note-voided { padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+
+.map-and-trips { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); align-items: start; }
+.map-card { display: grid; gap: 10px; min-width: 0; }
+.map-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: baseline; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: .9rem; }
+.swatch { display: inline-block; width: 22px; height: 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+.trips { display: grid; gap: 10px; min-width: 0; }
+.trips h2 .muted { font-size: .85rem; font-weight: 400; }
+.trip { border-left: 8px solid var(--line); padding: 12px 14px; display: grid; gap: 6px; }
+.trip.picked { outline: 2px solid var(--brand); }
+.trip-head { all: unset; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.trip-head:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.trip-sum { font-size: .9rem; }
+.stops { margin: 0; padding-left: 20px; display: grid; gap: 2px; font-size: .92rem; }
+.code-box { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px dashed var(--line); padding-top: 8px; }
+.code-box code { font-size: 1.15rem; font-weight: 600; letter-spacing: .12em; }
+.unassigned { padding: 12px 14px; background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+.unassigned ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: .92rem; }
+
+.actions-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.actions-bar .hint { flex: 1 1 320px; }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.history .table { min-width: 720px; }
+.history tr.current { background: var(--brand-soft); }
+
+@media (max-width: 1000px) {
+  .map-and-trips { grid-template-columns: minmax(0, 1fr); }
+  .control-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ให้ทุกกล่องในหน้าหดตามหน้าจอได้ (ไม่ดันหน้าให้เลื่อนซ้ายขวาบนมือถือ) */
+.page > * { min-width: 0; }
+.history { overflow: hidden; }
+
+.trip-progress { font-size: .9rem; font-weight: 600; }
+.trip-progress.all-done { color: #1b6b21; }
+.stops li.delivered { color: var(--ink-2); }
+.stops .ok { color: #1b6b21; font-weight: 600; white-space: nowrap; }
+.progress-box { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 10px 14px; }

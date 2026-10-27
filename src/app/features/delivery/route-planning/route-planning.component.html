@@ -1,0 +1,228 @@
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>วางเส้นทางจัดส่ง</h1>
+      <p>เลือกเป้าหมายแล้วกดคำนวณ ดูแผนบนแผนที่ ถ้ายังไม่พอใจกดคำนวณใหม่ได้ พอใจแล้วค่อยกดยืนยันเพื่อออกใบงานให้ไรเดอร์</p>
+    </div>
+    @if (session(); as s) {
+      <span class="badge" [class.badge-queued]="s.session_status === 'DRAFT'" [class.badge-shipped]="s.session_status === 'LOCKED'" [class.badge-off]="s.session_status === 'VOIDED'">
+        {{ statusLabel[s.session_status] }} · ครั้งที่ {{ s.iteration_number }}
+      </span>
+    }
+  </header>
+
+  <!-- ===== ตั้งค่าการคำนวณ ===== -->
+  <section class="panel panel-pad controls" aria-label="ตั้งค่าการคำนวณ">
+    <div class="control-row">
+      <label class="field">
+        <span>ส่งของวันที่</span>
+        <input class="input" type="date" [value]="date()" (change)="onDateChange($any($event.target).value)">
+      </label>
+      <label class="field">
+        <span>จำกัดจำนวนไรเดอร์ (ไม่ใส่ = ไม่จำกัด)</span>
+        <input class="input" type="number" min="1" inputmode="numeric" placeholder="เช่น 8" [value]="maxRiders() ?? ''" (input)="onMaxRiders($any($event.target).value)">
+      </label>
+      <div class="field goal-field" role="group" aria-labelledby="goal-label">
+        <span id="goal-label">เป้าหมายที่อยากได้</span>
+        <div class="goal-buttons">
+          @for (g of goals; track g) {
+            <button type="button" class="btn goal" [class.on]="goal() === g" [attr.aria-pressed]="goal() === g" (click)="goal.set(g)">{{ goalLabel[g] }}</button>
+          }
+        </div>
+        <small class="hint">{{ goalHint[goal()] }}</small>
+      </div>
+    </div>
+    <div class="control-foot">
+      @if (isLocked()) {
+        <p class="hint">วันนี้ยืนยันแผนไปแล้ว ถ้าจะคำนวณใหม่ให้กด "ยกเลิกแผนนี้" ก่อน</p>
+      } @else {
+        <p class="hint">คำนวณจากออเดอร์ที่ "รอจัดส่ง" ของวันที่เลือก · ไรเดอร์รับได้รอบละไม่เกิน 3 จุด</p>
+      }
+      <button type="button" class="btn btn-primary" [disabled]="calculating() || isLocked() || !date()" (click)="calculate()">
+        {{ calculating() ? 'กำลังคำนวณ…' : (detail() && !isVoided() ? 'คำนวณใหม่' : 'คำนวณเส้นทาง') }}
+      </button>
+    </div>
+  </section>
+
+  @if (error()) { <div class="alert" role="alert">{{ error() }}</div> }
+
+  @if (loading() && !detail()) {
+    <div class="panel state"><div class="spinner" aria-hidden="true"></div><span>กำลังโหลด…</span></div>
+  } @else if (!detail()) {
+    <div class="panel state">
+      <strong>ยังไม่มีผลคำนวณของวันที่ {{ thaiDate(date()) }}</strong>
+      <span>ต้องมีออเดอร์ที่ "รอจัดส่ง" ก่อน (สร้างเองหรือกดสุ่มออเดอร์ทดสอบในหน้าออเดอร์) แล้วกด "คำนวณเส้นทาง"</span>
+      <a class="btn" routerLink="/admin/orders">ไปหน้าออเดอร์</a>
+    </div>
+  } @else {
+    @if (detail(); as d) {
+      @if (isVoided()) {
+        <div class="note-voided" role="status">แผนครั้งที่ {{ d.session.iteration_number }} ถูกยกเลิกหรือถูกแทนที่แล้ว (ดูย้อนหลังได้ ยืนยันไม่ได้)</div>
+      }
+
+      <!-- ===== สรุปตัวเลข ===== -->
+      <section class="stats" aria-label="สรุปแผน">
+        <div class="panel stat">
+          <span class="label">ไรเดอร์ที่ต้องใช้</span>
+          <span class="value">{{ d.session.total_couriers }} คน</span>
+          <span class="sub">{{ d.session.total_orders }} ออเดอร์ · {{ d.session.total_meals }} กล่อง</span>
+        </div>
+        <div class="panel stat">
+          <span class="label">ระยะทางรวม</span>
+          <span class="value">{{ km(d.session.total_distance_meters) }}</span>
+          <span class="sub">รวมทุกรอบ ขาไปอย่างเดียว</span>
+        </div>
+        <div class="panel stat">
+          <span class="label">ค่าส่งรวม (จ่ายไรเดอร์)</span>
+          <span class="value">{{ baht(d.session.total_delivery_cost) }} ฿</span>
+          <span class="sub">ต้นทุนข้าว {{ baht(d.session.total_meal_cost) }} ฿</span>
+        </div>
+        <div class="panel stat" [class.loss]="lossMaking()">
+          <span class="label">{{ lossMaking() ? 'ขาดทุน' : 'กำไรสุทธิ' }}</span>
+          <span class="value" [class.profit]="!lossMaking()" [class.loss-text]="lossMaking()">{{ baht(d.session.net_profit) }} ฿</span>
+          <span class="sub">รายได้ {{ baht(d.session.total_revenue) }} ฿</span>
+        </div>
+        <div class="panel stat" [class.loss]="!d.session.is_deadline_met">
+          <span class="label">ส่งเสร็จช้าสุด</span>
+          <span class="value">{{ hhmm(d.session.latest_delivery_time) }} น.</span>
+          @if (d.session.is_deadline_met) {
+            <span class="sub ontime">ทันเวลา (กำหนด {{ hhmm(d.store.delivery_deadline) }} น.)</span>
+          } @else {
+            <span class="sub loss-text">เลยเวลา! กำหนด {{ hhmm(d.store.delivery_deadline) }} น.</span>
+          }
+        </div>
+      </section>
+
+      @if (isLocked()) {
+        <div class="panel progress-box" role="status">
+          <strong>ความคืบหน้าการส่ง: {{ deliveredStats().done }}/{{ deliveredStats().total }} จุด</strong>
+          <span class="muted">ไรเดอร์กด "ยืนยันว่าส่งแล้ว" ในใบงาน หน้านี้อัปเดตเองทุก 30 วินาที@if (refreshedAt()) { (ล่าสุด {{ refreshedAt() }} น.) }</span>
+          <button type="button" class="btn btn-sm" (click)="refresh()">อัปเดตตอนนี้</button>
+        </div>
+      }
+
+      @if (lossMaking()) {
+        <div class="alert" role="status">แผนนี้ขาดทุน ลองเปลี่ยนเป้าหมายเป็น "ต้นทุนต่ำสุด" แล้วกดคำนวณใหม่ หรือลองจำกัดจำนวนไรเดอร์ให้น้อยลง</div>
+      }
+      @if (!d.session.is_deadline_met) {
+        <div class="alert" role="status">มีรอบที่ส่งไม่ทันเวลา ลองเลือก "ส่งเสร็จเร็วสุด" หรือเพิ่มจำนวนไรเดอร์ที่ใช้ได้</div>
+      }
+
+      <!-- ===== แผนที่ + แต่ละรอบ ===== -->
+      <div class="map-and-trips">
+        <section class="panel panel-pad map-card" aria-label="แผนที่เส้นทาง">
+          <div class="map-head">
+            <h2>แผนที่เส้นทาง</h2>
+            <span class="hint">เลขในวงกลม = ลำดับที่ส่ง · เส้นตรงโดยประมาณ ไม่ใช่เส้นถนนจริง · วงประ = ระยะส่งสูงสุด {{ d.store.max_distance_km }} กม.</span>
+          </div>
+          <app-route-map [detail]="d" [focusTrip]="selectedTrip()" />
+          <div class="legend">
+            @for (t of d.trips; track t.trip_id) {
+              <span><i class="swatch" [style.background]="t.route_color"></i>รอบ {{ t.trip_number }}</span>
+            }
+            @if (selectedTrip() !== null) {
+              <button type="button" class="btn btn-sm btn-ghost" (click)="selectedTrip.set(null)">แสดงทุกรอบ</button>
+            }
+          </div>
+        </section>
+
+        <section class="trips" aria-label="รายละเอียดแต่ละรอบ">
+          <h2>แต่ละรอบ <span class="muted">(1 รอบ = ไรเดอร์ 1 คน · กดเพื่อเน้นบนแผนที่)</span></h2>
+          @for (t of d.trips; track t.trip_id) {
+            <article class="panel trip" [class.picked]="selectedTrip() === t.trip_number" [style.border-left-color]="t.route_color">
+              <button type="button" class="trip-head" [attr.aria-pressed]="selectedTrip() === t.trip_number" (click)="toggleTrip(t)">
+                <strong>รอบที่ {{ t.trip_number }}</strong>
+                <span class="muted">ถึงจุดสุดท้าย {{ hhmm(t.completion_time) }} น.</span>
+              </button>
+              <p class="muted trip-sum">{{ t.meal_count }} กล่อง · {{ km(t.trip_distance_meters) }} · ค่าส่ง {{ baht(t.delivery_wage) }} ฿</p>
+              @if (isLocked()) {
+                <p class="trip-progress" [class.all-done]="doneIn(t) === t.nodes.length">
+                  {{ doneIn(t) === t.nodes.length ? '✓ ส่งครบแล้ว' : 'ส่งแล้ว ' + doneIn(t) + '/' + t.nodes.length + ' จุด' }}
+                </p>
+              }
+              <ol class="stops">
+                @for (n of t.nodes; track n.order_id) {
+                  <li [class.delivered]="n.delivered_at">{{ n.customer_name || n.order_number }} · {{ n.quantity }} กล่อง · {{ hhmm(n.estimated_arrival_time) }}
+                    @if (n.delivered_at) { <span class="ok">✓ ส่งแล้ว {{ clock(n.delivered_at) }} น.</span> }
+                  </li>
+                }
+              </ol>
+              @if (t.trip_access_code) {
+                <div class="code-box">
+                  <span class="muted">รหัสใบงาน</span>
+                  <code>{{ t.trip_access_code }}</code>
+                  <button type="button" class="btn btn-sm" (click)="copy(t.trip_access_code, 'รหัส')">คัดลอกรหัส</button>
+                  <button type="button" class="btn btn-sm" (click)="copy(jobLink(t.trip_access_code), 'ลิงก์')">คัดลอกลิงก์</button>
+                </div>
+              }
+            </article>
+          }
+
+          @if (d.unassigned.length) {
+            <article class="panel unassigned">
+              <h3>ออเดอร์ที่ยังไม่อยู่ในแผน ({{ d.unassigned.length }})</h3>
+              <ul>
+                @for (u of d.unassigned; track u.order_id) {
+                  <li><strong>{{ u.order_number }}</strong> · {{ u.quantity }} กล่อง — {{ u.reason }}</li>
+                }
+              </ul>
+            </article>
+          }
+        </section>
+      </div>
+
+      <!-- ===== ยืนยัน / ยกเลิก ===== -->
+      @if (isDraft() || isLocked()) {
+        <section class="panel panel-pad actions-bar">
+          <p class="hint">
+            @if (isDraft()) { เมื่อกดยืนยัน ระบบจะออกรหัสใบงาน 8 ตัวให้แต่ละรอบ และเปลี่ยนออเดอร์เป็น "จัดส่งแล้ว" ถ้าจะแก้ต้องยกเลิกแผนก่อน }
+            @else { ส่งรหัสหรือลิงก์ในแต่ละรอบให้ไรเดอร์ ไรเดอร์เปิดหน้า <a routerLink="/job">/job</a> แล้วพิมพ์รหัสได้เลย ไม่ต้องล็อกอิน }
+          </p>
+          <div class="btns">
+            <button type="button" class="btn btn-danger" [disabled]="busy()" (click)="confirming.set('void')">ยกเลิกแผนนี้</button>
+            @if (isDraft()) {
+              <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="confirming.set('lock')">ยืนยันแผนและออกใบงาน</button>
+            }
+          </div>
+        </section>
+      }
+    }
+  }
+
+  <!-- ===== ประวัติการคำนวณของวันนั้น ===== -->
+  @if (history().length) {
+    <section class="panel history" aria-label="ประวัติการคำนวณ">
+      <div class="panel-pad"><h2>ประวัติการคำนวณของวันที่ {{ thaiDate(date()) }}</h2><p class="hint">เปิดดูแผนเก่าเพื่อเปรียบเทียบเส้นทางที่เคยคำนวณได้</p></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>ครั้งที่</th><th>เป้าหมาย</th><th class="right">ไรเดอร์</th><th class="right">ค่าส่งรวม</th><th class="right">กำไร</th><th>เสร็จช้าสุด</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody>
+            @for (h of history(); track h.session_id) {
+              <tr [class.current]="session()?.session_id === h.session_id">
+                <td class="num">{{ h.iteration_number }}</td>
+                <td>{{ goalLabel[h.optimization_goal] }}</td>
+                <td class="right num">{{ h.total_couriers }}</td>
+                <td class="right num">{{ baht(h.total_delivery_cost) }}</td>
+                <td class="right num">{{ baht(h.net_profit) }}</td>
+                <td class="num">{{ hhmm(h.latest_delivery_time) }}</td>
+                <td><span class="badge" [class.badge-queued]="h.session_status === 'DRAFT'" [class.badge-shipped]="h.session_status === 'LOCKED'" [class.badge-off]="h.session_status === 'VOIDED'">{{ statusLabel[h.session_status] }}</span></td>
+                <td class="right"><button type="button" class="btn btn-sm" [disabled]="session()?.session_id === h.session_id" (click)="open(h.session_id)">{{ session()?.session_id === h.session_id ? 'กำลังดู' : 'ดูแผนนี้' }}</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</section>
+
+@if (confirming()) {
+  <app-confirm-dialog
+    [title]="confirming() === 'lock' ? 'ยืนยันแผนจัดส่ง' : 'ยกเลิกแผน'"
+    [message]="confirmText()"
+    [confirmLabel]="confirming() === 'lock' ? 'ยืนยันแผน' : 'ยกเลิกแผน'"
+    [danger]="confirming() === 'void'"
+    [busy]="busy()"
+    (confirmed)="doConfirm()"
+    (cancelled)="confirming.set(null)" />
+}

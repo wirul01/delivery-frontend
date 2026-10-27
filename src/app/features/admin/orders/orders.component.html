@@ -1,0 +1,181 @@
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>ออเดอร์</h1>
+      <p>สถานะ “รอจัดส่ง” จะเปลี่ยนเป็น “จัดส่งแล้ว” เมื่อระบบวางเส้นทางปิดรอบวิ่ง (ส่วนของเพื่อนคนที่ 2)</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="openCreate()">+ สร้างออเดอร์</button>
+  </header>
+
+  <!-- สรุปสถานะ: กดเพื่อกรอง -->
+  <div class="chips" role="group" aria-label="กรองตามสถานะ">
+    <button type="button" class="chip" [class.on]="statusFilter() === 'ALL'" (click)="statusFilter.set('ALL')">
+      <span class="chip-label">ทั้งหมด</span><b class="num">{{ summary().all.orders }}</b><span class="muted">{{ summary().all.boxes }} กล่อง</span>
+    </button>
+    <button type="button" class="chip queued" [class.on]="statusFilter() === 'QUEUED'" (click)="statusFilter.set('QUEUED')">
+      <span class="chip-label">{{ statusLabel.QUEUED }}</span><b class="num">{{ summary().QUEUED.orders }}</b><span class="muted">{{ summary().QUEUED.boxes }} กล่อง</span>
+    </button>
+    <button type="button" class="chip shipped" [class.on]="statusFilter() === 'SHIPPED'" (click)="statusFilter.set('SHIPPED')">
+      <span class="chip-label">{{ statusLabel.SHIPPED }}</span><b class="num">{{ summary().SHIPPED.orders }}</b><span class="muted">{{ summary().SHIPPED.boxes }} กล่อง</span>
+    </button>
+  </div>
+
+  <!-- ค้นหา / กรอง -->
+  <div class="toolbar">
+    <input class="input grow" placeholder="ค้นหาเลขออเดอร์ ชื่อลูกค้า หรือเบอร์โทร" [ngModel]="query()" (ngModelChange)="query.set($event)" aria-label="ค้นหาออเดอร์">
+    <input class="input date" type="date" [ngModel]="dateFilter()" (ngModelChange)="dateFilter.set($event)" aria-label="กรองตามวันที่ส่ง">
+    <button class="btn" type="button" (click)="showNearby.set(!showNearby())" [attr.aria-expanded]="showNearby()">ออเดอร์ใกล้เคียง</button>
+    @if (query() || statusFilter() !== 'ALL' || dateFilter() || nearbyActive()) {
+      <button class="btn btn-ghost" type="button" (click)="clearFilters()">ล้างตัวกรอง</button>
+    }
+  </div>
+
+  @if (showNearby()) {
+    <form class="panel panel-pad nearby" [formGroup]="nearbyForm" (ngSubmit)="runNearby()">
+      <label class="field"><span>ละติจูด</span><input class="input" type="number" step="any" formControlName="lat"></label>
+      <label class="field"><span>ลองจิจูด</span><input class="input" type="number" step="any" formControlName="lng"></label>
+      <label class="field"><span>รัศมี (กม.)</span><input class="input" type="number" step="0.5" formControlName="radiusKm"></label>
+      <button class="btn btn-primary" type="submit">หาออเดอร์ในรัศมี</button>
+    </form>
+  }
+
+  <div class="panel">
+    @if (loading()) {
+      <div class="state"><div class="spinner"></div><span>กำลังโหลดออเดอร์…</span></div>
+    } @else if (loadError()) {
+      <div class="state"><strong>โหลดข้อมูลไม่สำเร็จ</strong><span>{{ loadError() }}</span><button class="btn" type="button" (click)="load()">ลองใหม่</button></div>
+    } @else if (visible().length === 0) {
+      <div class="state">
+        <strong>{{ orders().length ? 'ไม่พบออเดอร์ตามเงื่อนไข' : 'ยังไม่มีออเดอร์' }}</strong>
+        @if (!orders().length) { <span>สร้างออเดอร์แรก หรือใช้ “เครื่องมือทดสอบ” ด้านล่างเพื่อสุ่มออเดอร์ตัวอย่าง</span> }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>เลขออเดอร์</th><th>ลูกค้า</th><th>วันที่ส่ง</th><th class="right">กล่อง</th>
+              <th class="right">ยอดรวม</th><th class="right">กำไร*</th><th>สถานะ</th><th>ที่มา</th>
+              @if (nearbyActive()) { <th class="right">ระยะ</th> }
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of visible(); track o.order_id) {
+              <tr>
+                <td class="num"><strong>{{ o.order_number }}</strong></td>
+                <td>{{ customerName(o) }}<div class="muted small num">{{ o.phone_number }}</div></td>
+                <td>{{ date(o.target_date) }}</td>
+                <td class="num right">{{ o.quantity }}</td>
+                <td class="num right">{{ total(o).toFixed(2) }}</td>
+                <td class="num right">{{ profit(o).toFixed(2) }}</td>
+                <td><span class="badge" [class]="'badge ' + statusClass[o.order_status]">{{ statusLabel[o.order_status] }}</span></td>
+                <td><span class="badge badge-plain">{{ creationLabel[o.creation_type] }}</span></td>
+                @if (nearbyActive()) { <td class="num right">{{ o.distance_km?.toFixed(2) }} กม.</td> }
+                <td><div class="actions">
+                  <button class="btn btn-sm" type="button" (click)="openQuantity(o)">แก้จำนวน</button>
+                  <button class="btn btn-sm btn-danger" type="button" (click)="deleteTarget.set(o)">ลบ</button>
+                </div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="count muted">แสดง {{ visible().length }} ออเดอร์ · ยอดรวม {{ visibleRevenue().toFixed(2) }} บาท · *กำไรก่อนหักค่าส่ง</p>
+    }
+  </div>
+
+  <details class="tools panel panel-pad">
+    <summary>เครื่องมือทดสอบ</summary>
+    <p class="muted">ใช้ตอนพัฒนาเท่านั้น: สุ่มออเดอร์ตัวอย่างเข้าระบบ หรือล้างออเดอร์ทั้งหมด</p>
+    <div class="toolbar">
+      <button class="btn" type="button" (click)="bulk.set('seed')">สุ่มออเดอร์ตัวอย่าง 20–30 รายการ</button>
+      <button class="btn btn-danger" type="button" (click)="bulk.set('clear')">ล้างออเดอร์ทั้งหมด</button>
+    </div>
+  </details>
+</section>
+
+<!-- สร้างออเดอร์ -->
+@if (formOpen()) {
+  <div class="modal-backdrop" (click)="formOpen.set(false)">
+    <form class="modal wide" [formGroup]="form" (ngSubmit)="save()" (click)="$event.stopPropagation()" novalidate>
+      <div class="modal-head"><h2>สร้างออเดอร์ใหม่</h2></div>
+      <div class="modal-body">
+        @if (formError()) { <div class="alert" role="alert">{{ formError() }}</div> }
+        <div class="form-grid">
+          <label class="field full"><span>ลูกค้า</span>
+            <select class="input" formControlName="buyer_id" (change)="onBuyerChange()">
+              <option [ngValue]="0" disabled>— เลือกลูกค้า —</option>
+              @for (c of customers(); track c.buyer_id) { <option [ngValue]="c.buyer_id">{{ fullName(c) }} ({{ c.phone_number }})</option> }
+            </select>
+            @if (form.controls.buyer_id.touched && form.controls.buyer_id.invalid) { <small class="error-text">กรุณาเลือกลูกค้า</small> }
+          </label>
+
+          <label class="field"><span>เลขออเดอร์</span>
+            <input class="input" formControlName="order_number">
+            @if (form.controls.order_number.touched && form.controls.order_number.invalid) { <small class="error-text">กรุณากรอกเลขออเดอร์ (ไม่เกิน 20 ตัวอักษร)</small> }
+          </label>
+          <label class="field"><span>วันที่ส่ง</span><input class="input" type="date" formControlName="target_date"></label>
+
+          <div class="field full"><span>จำนวนกล่อง (สูงสุด 3 ต่อออเดอร์)</span>
+            <div class="seg" role="radiogroup" aria-label="จำนวนกล่อง">
+              @for (q of [1, 2, 3]; track q) {
+                <button type="button" role="radio" [attr.aria-checked]="form.controls.quantity.value === q"
+                        [class.on]="form.controls.quantity.value === q" (click)="setQuantity(q)">{{ q }}</button>
+              }
+            </div>
+          </div>
+
+          <label class="field"><span>ราคาขาย/กล่อง (บาท)</span><input class="input" type="number" step="0.5" formControlName="selling_price"></label>
+          <label class="field"><span>ต้นทุน/กล่อง (บาท)</span><input class="input" type="number" step="0.5" formControlName="cost_price"></label>
+
+          <label class="field"><span>ละติจูดจุดส่ง</span><input class="input" type="number" step="any" formControlName="delivery_latitude"></label>
+          <label class="field"><span>ลองจิจูดจุดส่ง</span><input class="input" type="number" step="any" formControlName="delivery_longitude"></label>
+          <p class="hint full">พิกัดจุดส่งเติมจากข้อมูลลูกค้าให้แล้ว แก้ได้ถ้าส่งที่อื่น · ยอดรวม
+            <b class="num">{{ (form.controls.quantity.value * form.controls.selling_price.value).toFixed(2) }}</b> บาท</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" (click)="formOpen.set(false)">ยกเลิก</button>
+        <button class="btn btn-primary" type="submit" [disabled]="saving()">{{ saving() ? 'กำลังบันทึก…' : 'สร้างออเดอร์' }}</button>
+      </div>
+    </form>
+  </div>
+}
+
+<!-- แก้จำนวนกล่อง -->
+@if (qtyTarget(); as target) {
+  <div class="modal-backdrop" (click)="qtyTarget.set(null)">
+    <div class="modal narrow" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-head"><h2>แก้จำนวนกล่อง</h2><p class="muted">{{ target.order_number }} · {{ customerName(target) }}</p></div>
+      <div class="modal-body">
+        <div class="seg" role="radiogroup" aria-label="จำนวนกล่อง">
+          @for (q of [1, 2, 3]; track q) {
+            <button type="button" role="radio" [attr.aria-checked]="qtyValue() === q" [class.on]="qtyValue() === q" (click)="qtyValue.set(q)">{{ q }}</button>
+          }
+        </div>
+        <p class="hint">ระบบแก้ได้เฉพาะจำนวนกล่อง ถ้าต้องการเปลี่ยนอย่างอื่น ให้ลบแล้วสร้างออเดอร์ใหม่</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" (click)="qtyTarget.set(null)">ยกเลิก</button>
+        <button class="btn btn-primary" type="button" [disabled]="qtySaving() || qtyValue() === target.quantity" (click)="saveQuantity()">
+          {{ qtySaving() ? 'กำลังบันทึก…' : 'บันทึก' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (deleteTarget(); as target) {
+  <app-confirm-dialog title="ลบออเดอร์"
+    [message]="'ต้องการลบออเดอร์ ' + target.order_number + ' ของ ' + customerName(target) + ' ใช่หรือไม่?'"
+    [busy]="deleting()" (confirmed)="confirmDelete()" (cancelled)="deleteTarget.set(null)" />
+}
+
+@if (bulk(); as action) {
+  <app-confirm-dialog
+    [title]="action === 'seed' ? 'สุ่มออเดอร์ตัวอย่าง' : 'ล้างออเดอร์ทั้งหมด'"
+    [message]="action === 'seed' ? 'ระบบจะสร้างออเดอร์จำลอง 20–30 รายการจากลูกค้าที่มีอยู่' : 'ออเดอร์ทุกรายการจะถูกลบและกู้คืนไม่ได้ ต้องการดำเนินการต่อหรือไม่?'"
+    [confirmLabel]="action === 'seed' ? 'สุ่มออเดอร์' : 'ล้างทั้งหมด'" [danger]="action === 'clear'"
+    [busy]="bulkBusy()" (confirmed)="confirmBulk()" (cancelled)="bulk.set(null)" />
+}

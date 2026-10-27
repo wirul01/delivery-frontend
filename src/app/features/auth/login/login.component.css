@@ -1,0 +1,36 @@
+.login { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.intro {
+  background: var(--side); color: var(--side-ink); padding: 48px; display: grid; align-content: center; gap: 18px;
+}
+.intro h2 { font-size: 2.6rem; line-height: 1.15; color: #fff; }
+.intro p { max-width: 34ch; }
+/* ถาดข้าวกล่อง: ช่องที่เต็ม = กล่องที่ใส่ข้าวแล้ว */
+.tray { display: grid; grid-template-columns: repeat(6, 34px); gap: 8px; margin-bottom: 14px; }
+.box { width: 34px; height: 34px; border-radius: 8px; border: 2px solid #3c6a63; }
+.box.full { background: #35b3a5; border-color: #35b3a5; }
+.card { display: grid; gap: 16px; align-content: center; padding: 48px; width: min(440px, 100%); margin: 0 auto; }
+.demo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 800px) {
+  .login { grid-template-columns: 1fr; }
+  .intro { padding: 28px 24px; }
+  .intro h2 { font-size: 1.8rem; }
+  .intro p { display: none; }
+  .tray { grid-template-columns: repeat(12, 20px); gap: 5px; margin: 0; }
+  .box { width: 20px; height: 20px; border-radius: 5px; }
+  .card { padding: 28px 24px; align-content: start; }
+}
+
+.eyebrow { color: #168578; font-size: .76rem; font-weight: 800; letter-spacing: .13em; margin-bottom: -8px; }
+.muted { color: var(--muted, #718096); margin-top: -8px; }
+.role-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.role-card { display: grid; gap: 7px; text-align: left; padding: 16px 14px; border: 1px solid #d9e4e2; border-radius: 14px; background: #fff; color: #203b38; cursor: pointer; }
+.role-card:hover { border-color: #58a99d; }
+.role-card.selected { border: 2px solid #168578; background: #effaf7; padding: 15px 13px; box-shadow: 0 0 0 3px rgba(22,133,120,.08); }
+.role-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #e1f4ef; color: #16796f; font-size: 1.25rem; }
+.role-title { font-weight: 750; }
+.role-desc { color: #647773; font-size: .8rem; line-height: 1.45; }
+.intro-note { display: flex; align-items: center; gap: 10px; color: #b6d6cf; font-size: .9rem; }
+.intro-note span { color: #fff; font-weight: 800; background: #24574f; padding: 5px 9px; border-radius: 8px; }
+.demo { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.demo small { width: 100%; color: #718096; }
+@media (max-width: 800px) { .role-picker { grid-template-columns: 1fr 1fr; } .role-card { padding: 12px 10px; } .role-card.selected { padding: 11px 9px; } }

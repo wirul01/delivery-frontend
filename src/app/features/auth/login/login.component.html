@@ -1,0 +1,61 @@
+<main class="login">
+  <section class="intro" aria-hidden="true">
+    <div class="tray">
+      @for (i of boxes; track i) { <span class="box" [class.full]="i % 3 !== 0"></span> }
+    </div>
+    <h2>ข้าวกล่อง<br>มื้อเที่ยง</h2>
+    <p>ระบบจัดเส้นทางและแบ่งงานส่งด่วน แยกการใช้งานสำหรับเจ้าของร้านและไรเดอร์</p>
+    <div class="intro-note"><span>11:30</span> เริ่มจัดส่ง <span>12:30</span> ส่งถึงลูกค้า</div>
+  </section>
+
+  <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <p class="eyebrow">DELIVERY MANAGEMENT</p>
+    <h1>เลือกเข้าสู่ระบบ</h1>
+    <p class="muted">เลือกประเภทบัญชีเพื่อเปิดหน้าที่ตรงกับการทำงาน</p>
+
+    <div class="role-picker" aria-label="ประเภทบัญชี">
+      <button type="button" class="role-card" [class.selected]="selectedRole() === 'OWNER'"
+        (click)="selectRole('OWNER')" [attr.aria-pressed]="selectedRole() === 'OWNER'">
+        <span class="role-icon">▦</span>
+        <span class="role-title">เจ้าของร้าน</span>
+        <span class="role-desc">จัดการออเดอร์ ลูกค้า และเส้นทาง</span>
+      </button>
+      <button type="button" class="role-card" [class.selected]="selectedRole() === 'RIDER'"
+        (click)="selectRole('RIDER')" [attr.aria-pressed]="selectedRole() === 'RIDER'">
+        <span class="role-icon">➤</span>
+        <span class="role-title">ไรเดอร์</span>
+        <span class="role-desc">ดูใบงาน รอบจัดส่ง และจุดส่งของตัวเอง</span>
+      </button>
+    </div>
+
+    @if (errorMsg()) { <div class="alert" role="alert">{{ errorMsg() }}</div> }
+
+    <label class="field">
+      <span>ชื่อผู้ใช้</span>
+      <input class="input" formControlName="username" autocomplete="username">
+      @if (form.controls.username.touched && form.controls.username.invalid) {
+        <small class="error-text">กรุณากรอกชื่อผู้ใช้</small>
+      }
+    </label>
+
+    <label class="field">
+      <span>รหัสผ่าน</span>
+      <input class="input" type="password" formControlName="password" autocomplete="current-password">
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <small class="error-text">กรุณากรอกรหัสผ่าน</small>
+      }
+    </label>
+
+    <button class="btn btn-primary" type="submit">
+      {{ selectedRole() === 'OWNER' ? 'เข้าสู่ระบบเจ้าของร้าน' : 'เข้าสู่ระบบไรเดอร์' }}
+    </button>
+
+    <p class="hint rider-link">ไรเดอร์ที่มีรหัสใบงานจากร้าน เปิดได้เลยโดยไม่ต้องล็อกอิน: <a href="/job">เปิดใบงาน</a></p>
+
+    <div class="demo hint">
+      <span>บัญชีทดลอง: <b>{{ selectedRole() === 'OWNER' ? 'shop_owner' : 'rider01' }}</b> / <b>1234</b></span>
+      <button type="button" class="btn btn-sm btn-ghost" (click)="fillDemo()">กรอกให้</button>
+      <small>ยืนยันตัวตนในหน้าเว็บเท่านั้น (backend ยังไม่มีระบบ login)</small>
+    </div>
+  </form>
+</main>

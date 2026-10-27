@@ -1,0 +1,43 @@
+<div class="shell">
+  <header class="topbar">
+    <button class="btn btn-sm menu-btn" type="button" (click)="menuOpen.set(!menuOpen())"
+            [attr.aria-expanded]="menuOpen()" aria-controls="side">เมนู</button>
+    <strong>{{ auth.role() === 'RIDER' ? 'พื้นที่ไรเดอร์' : 'ข้าวกล่องมื้อเที่ยง' }}</strong>
+  </header>
+
+  <aside id="side" class="side" [class.open]="menuOpen()">
+    <div class="brand">
+      @if (auth.role() === 'RIDER') { Rider<br>Portal } @else { ข้าวกล่อง<br>มื้อเที่ยง }
+    </div>
+
+    @if (auth.role() === 'OWNER') {
+      <nav aria-label="เมนูเจ้าของร้าน">
+        <p class="group">จัดการร้าน</p>
+        @for (item of ownerNav; track item.path) {
+          <a [routerLink]="item.path" routerLinkActive="active" (click)="closeMenu()">{{ item.label }}</a>
+        }
+      </nav>
+    } @else {
+      <nav aria-label="เมนูไรเดอร์">
+        <p class="group">งานจัดส่งของฉัน</p>
+        @for (item of riderNav; track item.path) {
+          <a [routerLink]="item.path" routerLinkActive="active" (click)="closeMenu()">{{ item.label }}</a>
+        }
+        <p class="rider-note">กรอกรหัสใบงานที่ร้านส่งให้ เพื่อดูรอบวิ่งของคุณ</p>
+      </nav>
+    }
+
+    <div class="me">
+      <div>
+        <div class="me-name">{{ auth.user()?.display_name ?? 'ผู้ใช้งาน' }}</div>
+        <div class="me-role">{{ auth.role() === 'OWNER' ? 'เจ้าของร้าน' : 'ไรเดอร์ · บัญชีทดลอง' }}</div>
+      </div>
+      <button class="btn btn-sm" type="button" (click)="auth.logout()">ออกจากระบบ</button>
+    </div>
+  </aside>
+
+  @if (menuOpen()) { <div class="scrim" (click)="closeMenu()"></div> }
+
+  <main class="content"><router-outlet /></main>
+</div>
+<app-toast-host />

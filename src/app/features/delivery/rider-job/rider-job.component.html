@@ -1,0 +1,112 @@
+<!-- จอคอม: แสดงเป็นกรอบโทรศัพท์ / จอมือถือจริง: เต็มจอตามปกติ (ดูสไตล์ใน .css) -->
+<div class="stage" [class.embedded]="embedded">
+<div class="phone"><div class="screen">
+<div class="rider" [class.embedded]="embedded">
+  @if (!embedded) {
+    <header class="brand">ข้าวกล่องมื้อเที่ยง · ใบงานไรเดอร์</header>
+  }
+
+  @if (!job()) {
+    <form class="panel panel-pad enter" (submit)="$event.preventDefault(); load()" novalidate>
+      <h1>เปิดใบงานของฉัน</h1>
+      <p class="muted">พิมพ์รหัสใบงาน 8 ตัวที่ร้านส่งให้ แล้วกด "เปิดใบงาน"</p>
+      <label class="field">
+        <span>รหัสใบงาน</span>
+        <input class="input code-input" [value]="code()" (input)="onCode($any($event.target).value)"
+               inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false"
+               maxlength="8" placeholder="เช่น K7M2QX9A" aria-describedby="code-hint">
+        <small id="code-hint" class="hint">ตัวอักษรภาษาอังกฤษและตัวเลข ไม่ต้องมีเว้นวรรค</small>
+      </label>
+      @if (error()) { <div class="alert" role="alert">{{ error() }}</div> }
+      <button class="btn btn-primary big" type="submit" [disabled]="loading() || code().length === 0">
+        {{ loading() ? 'กำลังเปิด…' : 'เปิดใบงาน' }}
+      </button>
+    </form>
+  } @else {
+    @if (job(); as j) {
+      <header class="job-head" [style.border-left-color]="j.route_color">
+        <span class="muted">ส่งวันที่ {{ thaiDate(j.session_date) }} · {{ j.store.name }}</span>
+        <h1>ใบงานรอบที่ {{ j.trip_number }}</h1>
+        <span class="code muted">รหัส {{ code() }}</span>
+      </header>
+
+      <section class="panel panel-pad summary" aria-label="สรุปงาน">
+        <div class="three">
+          <div><strong>{{ j.total_meals }}</strong><span>กล่องที่ต้องรับ</span></div>
+          <div><strong>{{ deliveredCount() }}/{{ j.stop_count }}</strong><span>จุดที่ส่งแล้ว</span></div>
+          <div><strong>{{ baht(j.delivery_wage) }} ฿</strong><span>ค่าส่งรอบนี้</span></div>
+        </div>
+        <div class="progress" role="progressbar" aria-label="ความคืบหน้า" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="percent()">
+          <i [style.width.%]="percent()" [style.background]="j.route_color"></i>
+        </div>
+        <p class="timeline">มารับข้าวที่ร้านแล้วออกเดินทาง <strong>{{ hhmm(j.dispatch_time) }} น.</strong> · ถึงจุดสุดท้ายประมาณ <strong>{{ hhmm(j.completion_time) }} น.</strong> · ระยะรวม {{ km(j.trip_distance_meters) }}</p>
+        <p class="deadline">ต้องส่งถึงลูกค้าทุกคนไม่เกิน <strong>{{ hhmm(j.delivery_deadline) }} น.</strong></p>
+      </section>
+
+      @if (allDone()) {
+        <div class="done-banner" role="status">
+          <strong>ส่งครบทุกจุดแล้ว ขอบคุณมากค่ะ</strong>
+          <span>ค่าส่งรอบนี้ {{ baht(j.delivery_wage) }} ฿ — เจ้าของร้านเห็นว่าส่งครบแล้ว</span>
+        </div>
+      } @else if (nextStop(); as nx) {
+        <div class="next-banner" role="status">
+          <span>จุดต่อไป</span>
+          <strong>จุดที่ {{ nx.stop_sequence }} · {{ nx.customer_name || nx.order_number }}</strong>
+          <span class="muted">{{ nx.quantity }} กล่อง · ถึงประมาณ {{ hhmm(nx.estimated_arrival_time) }} น.</span>
+        </div>
+      }
+
+      <section class="panel panel-pad map-card" #mapCard aria-label="แผนที่เส้นทาง">
+        <app-route-map [detail]="mapData()" [focusStop]="focus()" [myPosition]="me()" />
+        <p class="hint">เลขในวงกลม = ลำดับที่ส่ง · วงเรืองแสง = จุดต่อไป · เครื่องหมายถูกสีเขียว = ส่งแล้ว · เส้นตรงโดยประมาณ ไม่ใช่เส้นถนนจริง</p>
+        <button class="btn" type="button" (click)="toggleLocate()" [attr.aria-pressed]="locateOn">
+          {{ locating() ? 'กำลังหาตำแหน่ง…' : locateOn ? 'ซ่อนตำแหน่งฉัน' : 'แสดงตำแหน่งฉันบนแผนที่' }}
+        </button>
+        @if (locateError()) { <div class="alert" role="alert">{{ locateError() }}</div> }
+      </section>
+
+      <ol class="stops" aria-label="ลำดับจุดส่ง">
+        @for (s of j.stops; track s.stop_sequence) {
+          <li class="panel stop" [class.is-done]="s.delivered_at" [class.is-next]="nextStop()?.stop_sequence === s.stop_sequence">
+            <span class="no" [style.border-color]="j.route_color" aria-hidden="true">{{ s.delivered_at ? '✓' : s.stop_sequence }}</span>
+            <div class="stop-body">
+              <div class="line"><strong>จุดที่ {{ s.stop_sequence }} · {{ s.customer_name || s.order_number }}</strong><span class="muted">ถึง {{ hhmm(s.estimated_arrival_time) }} น.</span></div>
+              <div class="muted">{{ s.order_number }} · <strong class="qty">{{ s.quantity }} กล่อง</strong></div>
+              @if (s.delivered_at) {
+                <div class="delivered-line">
+                  <span class="ok">✓ ส่งแล้วเมื่อ {{ clock(s.delivered_at) }} น.</span>
+                  <button class="btn btn-sm btn-ghost" type="button" [disabled]="busy()" (click)="undo(s)">กดผิด? ยกเลิก</button>
+                </div>
+              }
+              <div class="stop-actions">
+                <button class="btn" type="button" (click)="showOnMap(s)">ดูบนแผนที่</button>
+                @if (s.phone_number) {
+                  <a class="btn" [href]="telHref(s.phone_number)">โทร {{ s.phone_number }}</a>
+                }
+                @if (!s.delivered_at) {
+                  <button class="btn btn-primary deliver" type="button" [disabled]="busy()" (click)="confirmStop.set(s)">ยืนยันว่าส่งแล้ว</button>
+                }
+              </div>
+            </div>
+          </li>
+        }
+      </ol>
+
+      <p class="muted center">ส่งตามลำดับ 1 → 2 → 3 ระบบคำนวณเส้นทางที่ประหยัดที่สุดให้แล้ว</p>
+      <p class="center gmaps">อยากให้นำทางตามถนนจริง? <a [href]="j.route_map_url" target="_blank" rel="noopener noreferrer">เปิดเส้นทางทั้งรอบใน Google Maps</a></p>
+      <button class="btn center-btn" type="button" (click)="reset()">เปิดใบงานด้วยรหัสอื่น</button>
+
+      @if (confirmStop(); as cs) {
+        <app-confirm-dialog
+          title="ยืนยันว่าส่งแล้ว"
+          [message]="'ส่งข้าวกล่อง ' + cs.quantity + ' กล่องให้ ' + (cs.customer_name || cs.order_number) + ' (จุดที่ ' + cs.stop_sequence + ') เรียบร้อยแล้วใช่ไหม?'"
+          confirmLabel="ส่งแล้ว"
+          [danger]="false"
+          [busy]="busy()"
+          (confirmed)="doDelivered()"
+          (cancelled)="confirmStop.set(null)" />
+      }
+    }
+  }
+</div>
+</div></div></div>

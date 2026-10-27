@@ -1,0 +1,129 @@
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>ลูกค้า</h1>
+      <p>รายชื่อลูกค้าและพิกัดจุดส่งที่ใช้เป็นค่าเริ่มต้นตอนสร้างออเดอร์</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="openCreate()">+ เพิ่มลูกค้า</button>
+  </header>
+
+  <!-- ค้นหา -->
+  <form class="toolbar" (submit)="$event.preventDefault(); runSearch()">
+    <select class="input by" [(ngModel)]="searchBy" name="by" aria-label="ค้นหาจาก">
+      <option value="first_name">ชื่อ</option>
+      <option value="last_name">นามสกุล</option>
+      <option value="id">รหัสลูกค้า</option>
+    </select>
+    <input class="input grow" [(ngModel)]="searchText" name="q" placeholder="พิมพ์บางส่วนของคำค้นหา เช่น สม">
+    <button class="btn" type="submit">ค้นหา</button>
+    <button class="btn" type="button" (click)="showNearby.set(!showNearby())" [attr.aria-expanded]="showNearby()">ค้นหาใกล้เคียง</button>
+    @if (mode() !== 'all') { <button class="btn btn-ghost" type="button" (click)="loadAll()">ล้างตัวกรอง</button> }
+  </form>
+
+  @if (showNearby()) {
+    <form class="panel panel-pad nearby" [formGroup]="nearbyForm" (ngSubmit)="runNearby()">
+      <label class="field"><span>ละติจูด</span><input class="input" type="number" step="any" formControlName="latitude"></label>
+      <label class="field"><span>ลองจิจูด</span><input class="input" type="number" step="any" formControlName="longitude"></label>
+      <label class="field"><span>รัศมี (กม.)</span><input class="input" type="number" step="0.1" formControlName="radius"></label>
+      <button class="btn btn-primary" type="submit">หาลูกค้าในรัศมี</button>
+    </form>
+  }
+
+  <div class="panel">
+    @if (loading()) {
+      <div class="state"><div class="spinner"></div><span>กำลังโหลดข้อมูลลูกค้า…</span></div>
+    } @else if (loadError()) {
+      <div class="state"><strong>โหลดข้อมูลไม่สำเร็จ</strong><span>{{ loadError() }}</span>
+        <button class="btn" type="button" (click)="loadAll()">ลองใหม่</button></div>
+    } @else if (customers().length === 0) {
+      <div class="state">
+        <strong>{{ mode() === 'all' ? 'ยังไม่มีลูกค้า' : 'ไม่พบลูกค้าตามเงื่อนไข' }}</strong>
+        @if (mode() === 'all') { <span>เพิ่มลูกค้าคนแรกเพื่อเริ่มรับออเดอร์</span> }
+        @else { <button class="btn" type="button" (click)="loadAll()">ดูลูกค้าทั้งหมด</button> }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>รหัส</th><th>ชื่อ-นามสกุล</th><th>เบอร์โทร</th><th>พิกัดจุดส่ง</th>
+              @if (mode() === 'nearby') { <th class="right">ห่างจากจุดที่เลือก</th> }
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of customers(); track c.buyer_id) {
+              <tr>
+                <td class="num">{{ c.buyer_id }}</td>
+                <td>{{ fullName(c) }}</td>
+                <td class="num">{{ c.phone_number }}</td>
+                <td class="num"><a [href]="mapLink(c)" target="_blank" rel="noopener">{{ c.latitude.toFixed(5) }}, {{ c.longitude.toFixed(5) }}</a></td>
+                @if (mode() === 'nearby') { <td class="num right">{{ c.distance_km?.toFixed(2) }} กม.</td> }
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-sm" type="button" (click)="openEdit(c)">แก้ไข</button>
+                    <button class="btn btn-sm btn-danger" type="button" (click)="deleteTarget.set(c)">ลบ</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="count muted">ทั้งหมด {{ customers().length }} คน</p>
+    }
+  </div>
+</section>
+
+<!-- ฟอร์มเพิ่ม/แก้ไข -->
+@if (formOpen()) {
+  <div class="modal-backdrop" (click)="closeForm()">
+    <form class="modal" [formGroup]="form" (ngSubmit)="save()" (click)="$event.stopPropagation()" novalidate>
+      <div class="modal-head"><h2>{{ editing() ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มลูกค้าใหม่' }}</h2></div>
+      <div class="modal-body">
+        @if (formError()) { <div class="alert" role="alert">{{ formError() }}</div> }
+        <div class="form-grid">
+          <label class="field">
+            <span>ชื่อ</span>
+            <input class="input" formControlName="first_name" autocomplete="off">
+            @if (form.controls.first_name.touched && form.controls.first_name.invalid) { <small class="error-text">กรุณากรอกชื่อ</small> }
+          </label>
+          <label class="field">
+            <span>นามสกุล</span>
+            <input class="input" formControlName="last_name" autocomplete="off">
+            @if (form.controls.last_name.touched && form.controls.last_name.invalid) { <small class="error-text">กรุณากรอกนามสกุล</small> }
+          </label>
+          <label class="field full">
+            <span>เบอร์โทร</span>
+            <input class="input" formControlName="phone_number" inputmode="tel" maxlength="10" placeholder="0812345678">
+            @if (form.controls.phone_number.touched && form.controls.phone_number.invalid) { <small class="error-text">กรอกเบอร์ 9–10 หลัก ขึ้นต้นด้วย 0</small> }
+          </label>
+          <label class="field">
+            <span>ละติจูด</span>
+            <input class="input" type="number" step="any" formControlName="latitude">
+            @if (form.controls.latitude.invalid) { <small class="error-text">ค่าต้องอยู่ระหว่าง -90 ถึง 90</small> }
+          </label>
+          <label class="field">
+            <span>ลองจิจูด</span>
+            <input class="input" type="number" step="any" formControlName="longitude">
+            @if (form.controls.longitude.invalid) { <small class="error-text">ค่าต้องอยู่ระหว่าง -180 ถึง 180</small> }
+          </label>
+          <p class="hint full">หาพิกัดได้จาก Google Maps: คลิกขวาที่จุดส่งแล้วคัดลอกตัวเลขสองค่าแรก</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" (click)="closeForm()">ยกเลิก</button>
+        <button class="btn btn-primary" type="submit" [disabled]="saving()">{{ saving() ? 'กำลังบันทึก…' : 'บันทึก' }}</button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (deleteTarget(); as target) {
+  <app-confirm-dialog
+    title="ลบลูกค้า"
+    [message]="'ต้องการลบ ' + fullName(target) + ' ใช่หรือไม่? ถ้าลูกค้ามีออเดอร์อยู่ ระบบจะไม่อนุญาตให้ลบ'"
+    [busy]="deleting()"
+    (confirmed)="confirmDelete()"
+    (cancelled)="deleteTarget.set(null)" />
+}
